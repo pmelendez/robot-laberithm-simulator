@@ -1,0 +1,12 @@
+sensors:
+  - type: ultrasound
+    directions:
+      - front
+      - left
+      - right
+  - type: infrared
+    directions:
+      - front
+      - left
+      - right
+      - back

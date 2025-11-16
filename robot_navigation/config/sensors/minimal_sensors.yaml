@@ -1,0 +1,6 @@
+sensors:
+  - type: infrared
+    directions:
+      - front
+      - left
+      - right
