@@ -17,8 +17,11 @@ This project demonstrates pure functional programming in Python with:
 - **Configurable Sensors**: Ultrasound and infrared sensors with flexible configuration
 - **Pluggable Strategies**: Wall-following, random walk, and greedy navigation strategies
 - **Pure Functional Design**: All core logic uses immutable data and pure functions
-- **Visualization**: ASCII-based maze rendering with path tracking
+- **Dual Visualization**:
+  - ASCII-based text rendering for terminal
+  - 2D graphical visualization with pygame (real-time, interactive)
 - **CLI Interface**: Multiple execution modes (fast, step-by-step, animated)
+- **Interactive Graphics**: Play/pause, speed control, visual toggles, and more
 
 ## Project Structure
 
@@ -42,14 +45,21 @@ robot_navigation/
 │   ├── robot.py                 # Robot state transformation functions
 │   ├── sensors.py               # Sensor functions
 │   ├── simulation.py            # Simulation engine
-│   └── visualization.py         # Display functions
+│   ├── visualization.py         # ASCII display functions
+│   └── graphics/                # 2D graphical visualization
+│       ├── __init__.py
+│       ├── config.py            # Rendering configuration
+│       ├── colors.py            # Color schemes
+│       ├── rendering.py         # Pure rendering functions
+│       └── ui_components.py     # UI element rendering
 ├── strategies/
 │   ├── __init__.py
 │   ├── wall_follow.py           # Wall-following strategy
 │   ├── random_walk.py           # Random walk strategy
 │   └── greedy.py                # Greedy (distance-based) strategy
 ├── examples/
-│   └── run_simulation.py        # Main CLI script
+│   ├── run_simulation.py        # CLI script (text-based)
+│   └── run_graphical.py         # Graphical interface (pygame)
 └── tests/
     └── test_basic.py            # Basic functionality tests
 ```
@@ -65,14 +75,33 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### Run with defaults (simple maze, wall-follow strategy):
+### Graphical Interface (Recommended)
+
+Run the interactive 2D graphical visualization:
+
+```bash
+cd examples
+python run_graphical.py
+```
+
+**Controls:**
+- `SPACE` - Play/Pause
+- `ENTER` - Step forward (when paused)
+- `+/-` - Adjust speed
+- `P/S/G` - Toggle path/sensors/grid
+- `R` - Reset
+- `ESC` - Quit
+
+### CLI Interface (Text-based)
+
+Run with defaults (simple maze, wall-follow strategy):
 
 ```bash
 cd examples
 python run_simulation.py
 ```
 
-### Specify a maze and strategy:
+Specify a maze and strategy:
 
 ```bash
 python run_simulation.py \
@@ -80,13 +109,13 @@ python run_simulation.py \
   --strategy ../strategies/greedy.py
 ```
 
-### Step-by-step mode (interactive):
+Step-by-step mode (interactive):
 
 ```bash
 python run_simulation.py --step-mode
 ```
 
-### Animated mode:
+Animated mode:
 
 ```bash
 python run_simulation.py --animated --speed 0.2
@@ -143,6 +172,110 @@ results = [
     for m in mazes
 ]
 ```
+
+## Graphical Visualization
+
+The project includes a complete 2D graphical visualization system built with pygame while maintaining functional programming principles.
+
+### Running the Graphical Interface
+
+```bash
+cd examples
+
+# Run with default settings
+python run_graphical.py
+
+# Use specific maze and strategy
+python run_graphical.py \
+  --maze ../config/mazes/medium.yaml \
+  --strategy ../strategies/greedy.py
+
+# Customize appearance and behavior
+python run_graphical.py \
+  --theme dark \
+  --speed 5.0 \
+  --cell-size 50 \
+  --no-grid
+```
+
+### Available Themes
+
+- `default` - Balanced color scheme
+- `dark` - Dark theme with muted colors
+- `light` - Light theme with bright colors
+
+### Graphical Features
+
+The visualization displays:
+- **Maze Structure**: Walls, paths, start (green), and exit (red)
+- **Robot**: Blue circle with directional arrow indicating orientation
+- **Path Trail**: Gradient trail showing robot's movement history (recent positions brighter)
+- **Sensor Beams**: Visual representation of ultrasound distance sensors
+- **Sensor Indicators**: Infrared proximity sensor status lights
+- **Real-time Metrics**: Steps, unique positions, backtracks, collisions
+- **Status Bar**: Current state, speed, and active toggles
+
+### Functional Design Principles
+
+The graphics module maintains functional purity:
+
+**Pure Rendering Functions** (in `src/graphics/rendering.py`):
+```python
+def render_simulation_state(
+    state: SimulationState,
+    sensor_readings: List[SensorReading],
+    config: RenderConfig,
+    colors: ColorScheme,
+    layout: UILayout
+) -> pygame.Surface:
+    """
+    PURE function - creates surface from state.
+    Same inputs always produce same output.
+    No side effects.
+    """
+    # Rendering logic...
+    return surface
+```
+
+**Immutable Configuration** (in `src/graphics/config.py`):
+```python
+@dataclass(frozen=True)
+class RenderConfig:
+    """All configuration is immutable"""
+    cell_size: int = 40
+    animation_speed: float = 2.0
+    show_path: bool = True
+    # ...
+
+# Updates create new instances
+new_config = adjust_speed(config, 1.5)  # Returns new config
+```
+
+**I/O Isolation** (in `examples/run_graphical.py`):
+```python
+# All impure operations (events, display) isolated in main loop
+def run_graphical_simulation(...):
+    """IMPURE: Main event loop with I/O operations"""
+    # Event handling (IMPURE)
+    for event in pygame.event.get():
+        # Handle input...
+
+    # Simulation step (PURE)
+    current_state = step_simulation(current_state, strategy)
+
+    # Rendering (PURE functions)
+    surface = render_simulation_state(state, ...)
+
+    # Display (IMPURE)
+    screen.blit(surface, (0, 0))
+    pygame.display.flip()
+```
+
+This architecture ensures:
+- All rendering logic is testable (pure functions)
+- Configuration is immutable and type-safe
+- I/O operations are clearly separated
+- State transformations remain pure
 
 ## Core Concepts
 
