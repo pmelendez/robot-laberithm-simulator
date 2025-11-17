@@ -34,7 +34,8 @@ from .ui_components import (
     render_controls_panel,
     render_status_bar,
     render_title_bar,
-    render_completion_overlay
+    render_completion_overlay,
+    render_strategy_selector
 )
 
 __all__ = [
@@ -68,4 +69,5 @@ __all__ = [
     'render_status_bar',
     'render_title_bar',
     'render_completion_overlay',
+    'render_strategy_selector',
 ]

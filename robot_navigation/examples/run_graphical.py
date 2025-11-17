@@ -15,7 +15,9 @@ Controls:
     S     - Toggle sensor visualization
     G     - Toggle grid overlay
     R     - Reset simulation
-    ESC   - Quit
+    T     - Toggle strategy selector
+    1-5   - Select strategy (when selector is open)
+    ESC   - Quit (or close strategy selector)
 """
 import argparse
 import sys
@@ -51,6 +53,7 @@ from src.graphics import (
     render_status_bar,
     render_title_bar,
     render_completion_overlay,
+    render_strategy_selector,
     adjust_speed,
     toggle_setting
 )
@@ -91,7 +94,38 @@ def get_strategy_name(strategy_path: str) -> str:
     return name.replace('_', ' ').title()
 
 
-def handle_events(paused: bool, config: RenderConfig):
+def load_all_strategies(strategies_dir: str):
+    """
+    Load all available strategy modules from the strategies directory.
+
+    IMPURE: Loads modules from file system.
+
+    Args:
+        strategies_dir: Path to strategies directory
+
+    Returns:
+        Dictionary of {name: (path, function)} for all strategies
+    """
+    strategies = {}
+
+    if not os.path.exists(strategies_dir):
+        return strategies
+
+    for filename in os.listdir(strategies_dir):
+        if filename.endswith('.py') and not filename.startswith('__'):
+            filepath = os.path.join(strategies_dir, filename)
+            name = get_strategy_name(filepath)
+
+            try:
+                strategy_func = load_strategy_from_module(filepath)
+                strategies[name] = (filepath, strategy_func)
+            except Exception as e:
+                print(f"Warning: Could not load strategy {filename}: {e}")
+
+    return strategies
+
+
+def handle_events(paused: bool, config: RenderConfig, show_selector: bool = False):
     """
     Handle pygame events and return updated state.
 
@@ -100,13 +134,16 @@ def handle_events(paused: bool, config: RenderConfig):
     Args:
         paused: Current pause state
         config: Current render configuration
+        show_selector: Whether strategy selector is currently shown
 
     Returns:
-        Tuple of (running, paused, config, should_step, should_reset)
+        Tuple of (running, paused, config, should_step, should_reset, toggle_selector, selected_strategy_num)
     """
     running = True
     should_step = False
     should_reset = False
+    toggle_selector = False
+    selected_strategy_num = None
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -114,34 +151,58 @@ def handle_events(paused: bool, config: RenderConfig):
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                running = False
+                if show_selector:
+                    toggle_selector = True  # Close selector
+                else:
+                    running = False
 
-            elif event.key == pygame.K_SPACE:
+            elif event.key == pygame.K_SPACE and not show_selector:
                 paused = not paused
 
             elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
-                if paused:
+                if paused and not show_selector:
                     should_step = True
 
             elif event.key == pygame.K_PLUS or event.key == pygame.K_EQUALS:
-                config = adjust_speed(config, 1.5)
+                if not show_selector:
+                    config = adjust_speed(config, 1.5)
 
             elif event.key == pygame.K_MINUS:
-                config = adjust_speed(config, 0.67)
+                if not show_selector:
+                    config = adjust_speed(config, 0.67)
 
             elif event.key == pygame.K_p:
-                config = toggle_setting(config, 'path')
+                if not show_selector:
+                    config = toggle_setting(config, 'path')
 
-            elif event.key == pygame.K_s:
+            elif event.key == pygame.K_s and not show_selector:
                 config = toggle_setting(config, 'sensors')
 
             elif event.key == pygame.K_g:
-                config = toggle_setting(config, 'grid')
+                if not show_selector:
+                    config = toggle_setting(config, 'grid')
 
             elif event.key == pygame.K_r:
-                should_reset = True
+                if not show_selector:
+                    should_reset = True
 
-    return running, paused, config, should_step, should_reset
+            elif event.key == pygame.K_t:
+                toggle_selector = True  # Show/hide strategy selector
+
+            # Number keys for strategy selection
+            elif show_selector:
+                if event.key == pygame.K_1:
+                    selected_strategy_num = 1
+                elif event.key == pygame.K_2:
+                    selected_strategy_num = 2
+                elif event.key == pygame.K_3:
+                    selected_strategy_num = 3
+                elif event.key == pygame.K_4:
+                    selected_strategy_num = 4
+                elif event.key == pygame.K_5:
+                    selected_strategy_num = 5
+
+    return running, paused, config, should_step, should_reset, toggle_selector, selected_strategy_num
 
 
 def run_graphical_simulation(
@@ -150,7 +211,8 @@ def run_graphical_simulation(
     config: RenderConfig,
     color_scheme: ColorScheme,
     strategy_name: str = "Unknown",
-    max_steps: int = 1000
+    max_steps: int = 1000,
+    all_strategies: dict = None
 ):
     """
     Run the graphical simulation with pygame.
@@ -164,7 +226,10 @@ def run_graphical_simulation(
         color_scheme: Color scheme to use
         strategy_name: Name of strategy for display
         max_steps: Maximum simulation steps
+        all_strategies: Dictionary of all available strategies
     """
+    if all_strategies is None:
+        all_strategies = {strategy_name: (None, strategy)}
     # Initialize pygame (IMPURE)
     pygame.init()
     screen = pygame.display.set_mode((config.screen_width, config.screen_height))
@@ -179,12 +244,39 @@ def run_graphical_simulation(
     paused = True  # Start paused
     step_accumulator = 0.0
     all_states = [initial_state]
+    show_strategy_selector = False
+    current_strategy = strategy
+    current_strategy_name = strategy_name
 
     running = True
 
     while running:
         # Event handling (IMPURE)
-        running, paused, config, should_step, should_reset = handle_events(paused, config)
+        running, paused, config, should_step, should_reset, toggle_selector, selected_strategy_num = handle_events(
+            paused, config, show_strategy_selector
+        )
+
+        # Toggle strategy selector
+        if toggle_selector:
+            show_strategy_selector = not show_strategy_selector
+            if show_strategy_selector:
+                paused = True  # Auto-pause when opening selector
+
+        # Handle strategy selection
+        if selected_strategy_num is not None and show_strategy_selector:
+            strategy_names = sorted(all_strategies.keys())
+            if 1 <= selected_strategy_num <= len(strategy_names):
+                selected_name = strategy_names[selected_strategy_num - 1]
+                _, new_strategy = all_strategies[selected_name]
+
+                # Switch strategy and reset simulation
+                current_strategy = new_strategy
+                current_strategy_name = selected_name
+                current_state = initial_state
+                all_states = [initial_state]
+                step_accumulator = 0.0
+                paused = True
+                show_strategy_selector = False  # Close selector after selection
 
         # Reset simulation if requested
         if should_reset:
@@ -209,8 +301,8 @@ def run_graphical_simulation(
                 step_accumulator -= 1.0
 
         if should_advance and not is_complete(current_state) and len(all_states) < max_steps:
-            # Step simulation (PURE)
-            current_state = step_simulation(current_state, strategy)
+            # Step simulation (PURE) - use current_strategy
+            current_state = step_simulation(current_state, current_strategy)
             all_states.append(current_state)
 
         # Get sensor readings (PURE)
@@ -230,8 +322,8 @@ def run_graphical_simulation(
             layout
         )
 
-        # Title bar
-        title_surface = render_title_bar(config, color_scheme, strategy_name)
+        # Title bar - use current_strategy_name
+        title_surface = render_title_bar(config, color_scheme, current_strategy_name)
 
         # Status bar
         status_surface = render_status_bar(
@@ -278,6 +370,17 @@ def run_graphical_simulation(
             completion_surface = render_completion_overlay(config, color_scheme, final_metrics)
             screen.blit(completion_surface, (0, 0))
 
+        # Show strategy selector if active
+        if show_strategy_selector:
+            selector_surface = render_strategy_selector(
+                screen.copy(),
+                all_strategies,
+                current_strategy_name,
+                config,
+                color_scheme
+            )
+            screen.blit(selector_surface, (0, 0))
+
         # Update display (IMPURE)
         pygame.display.flip()
         clock.tick(config.fps)
@@ -304,7 +407,9 @@ Controls:
   S     - Toggle sensor visualization
   G     - Toggle grid overlay
   R     - Reset simulation
-  ESC   - Quit
+  T     - Toggle strategy selector
+  1-5   - Select strategy (when selector is open)
+  ESC   - Quit (or close strategy selector)
 
 Examples:
   # Run with defaults
@@ -415,6 +520,13 @@ Examples:
     strategy = load_strategy_from_module(args.strategy)
     strategy_name = get_strategy_name(args.strategy)
 
+    # Load all available strategies for toggling
+    print("Loading available strategies...")
+    strategies_dir = os.path.join(os.path.dirname(args.strategy), '..')
+    strategies_dir = os.path.join(os.path.dirname(__file__), '..', 'strategies')
+    all_strategies = load_all_strategies(strategies_dir)
+    print(f"Found {len(all_strategies)} strategies: {', '.join(sorted(all_strategies.keys()))}")
+
     # Create configuration (PURE)
     config = RenderConfig(
         cell_size=args.cell_size,
@@ -445,7 +557,8 @@ Examples:
         config,
         color_scheme,
         strategy_name,
-        args.max_steps
+        args.max_steps,
+        all_strategies
     )
 
     # Print final summary

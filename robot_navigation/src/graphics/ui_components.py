@@ -111,6 +111,8 @@ def render_controls_panel(
         "ENTER - Step",
         "+/-   - Speed",
         "P/S/G - Toggles",
+        "T     - Strategy",
+        "R     - Reset",
         "ESC   - Quit"
     ]
 
@@ -313,6 +315,88 @@ def render_completion_overlay(
     # Position overlay in center of screen
     overlay_x = (config.screen_width - 400) // 2
     overlay_y = (config.screen_height - 300) // 2
+
+    surface.blit(overlay, (overlay_x, overlay_y))
+
+    return surface
+
+
+def render_strategy_selector(
+    surface: pygame.Surface,
+    strategies: Dict[str, Any],
+    current_strategy: str,
+    config: RenderConfig,
+    colors: ColorScheme
+) -> pygame.Surface:
+    """
+    Render strategy selection overlay.
+
+    PURE function - creates overlay surface for strategy selection.
+
+    Args:
+        surface: Base surface to draw on
+        strategies: Dictionary of {name: (path, function)} for available strategies
+        current_strategy: Name of currently selected strategy
+        config: Render configuration
+        colors: Color scheme
+
+    Returns:
+        Surface with strategy selector overlay
+    """
+    # Create semi-transparent overlay
+    overlay = pygame.Surface((500, 400))
+    overlay.fill(colors.ui_panel)
+    overlay.set_alpha(240)
+
+    # Draw border
+    pygame.draw.rect(overlay, colors.ui_text, (0, 0, 500, 400), 3)
+
+    # Setup fonts
+    try:
+        title_font = pygame.font.Font(None, 36)
+        font = pygame.font.Font(None, 28)
+        small_font = pygame.font.Font(None, 24)
+    except:
+        title_font = pygame.font.SysFont('monospace', 32)
+        font = pygame.font.SysFont('monospace', 24)
+        small_font = pygame.font.SysFont('monospace', 20)
+
+    # Title
+    title_text = title_font.render("SELECT STRATEGY", True, colors.ui_text)
+    title_x = (500 - title_text.get_width()) // 2
+    overlay.blit(title_text, (title_x, 20))
+
+    # Instruction
+    inst_text = small_font.render("Press number key to switch strategy", True, colors.ui_text)
+    inst_x = (500 - inst_text.get_width()) // 2
+    overlay.blit(inst_text, (inst_x, 60))
+
+    # Strategy list
+    y_offset = 110
+    strategy_names = sorted(strategies.keys())
+
+    for i, strategy_name in enumerate(strategy_names, 1):
+        # Highlight current strategy
+        is_current = (strategy_name == current_strategy)
+        text_color = colors.start if is_current else colors.ui_text
+
+        # Strategy number and name
+        text_str = f"{i}. {strategy_name}"
+        if is_current:
+            text_str += " ← ACTIVE"
+
+        text = font.render(text_str, True, text_color)
+        overlay.blit(text, (50, y_offset))
+        y_offset += 50
+
+    # Footer instructions
+    footer_text = small_font.render("Press T again or ESC to close", True, colors.ui_text)
+    footer_x = (500 - footer_text.get_width()) // 2
+    overlay.blit(footer_text, (footer_x, 360))
+
+    # Position overlay in center of screen
+    overlay_x = (config.screen_width - 500) // 2
+    overlay_y = (config.screen_height - 400) // 2
 
     surface.blit(overlay, (overlay_x, overlay_y))
 

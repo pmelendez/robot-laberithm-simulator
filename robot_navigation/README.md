@@ -89,8 +89,10 @@ python run_graphical.py
 - `ENTER` - Step forward (when paused)
 - `+/-` - Adjust speed
 - `P/S/G` - Toggle path/sensors/grid
+- `T` - Toggle strategy selector (switch between strategies in real-time)
+- `1-5` - Select strategy (when selector is open)
 - `R` - Reset
-- `ESC` - Quit
+- `ESC` - Quit (or close strategy selector)
 
 ### CLI Interface (Text-based)
 
@@ -214,6 +216,7 @@ The visualization displays:
 - **Sensor Indicators**: Infrared proximity sensor status lights
 - **Real-time Metrics**: Steps, unique positions, backtracks, collisions
 - **Status Bar**: Current state, speed, and active toggles
+- **Strategy Selector**: Press `T` to toggle between available navigation strategies in real-time
 
 ### Functional Design Principles
 
